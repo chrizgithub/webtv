@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>ChRiZ IPTV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #0d0d14;
+    --surface: #13131e;
+    --surface2: #1c1c2a;
+    --border: #252535;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --star: #ffd600;
+    --text: #eeeef8;
+    --text-dim: #5a5a78;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  /* ── LIST VIEW ── */
+  #appView {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px 10px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 10px;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .ch-count {
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* GROUP TABS */
+  .group-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .group-tabs::-webkit-scrollbar { display: none; }
+
+  .group-tab {
+    padding: 9px 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .group-tab:active { background: var(--surface2); }
+  .group-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .group-tab.fav-tab.active { color: var(--star); border-bottom-color: var(--star); }
+
+  /* CHANNEL LIST */
+  .channel-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .channel-item {
+    display: flex;
+    align-items: center;
+    padding: 11px 14px;
+    gap: 12px;
+    border-bottom: 1px solid rgba(37,37,53,0.8);
+    cursor: pointer;
+  }
+  .channel-item:active { background: var(--surface2); }
+
+  .ch-logo-wrap {
+    width: 42px; height: 42px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: var(--surface2);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .ch-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+
+  .ch-info { flex: 1; min-width: 0; }
+  .ch-name {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ch-group { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .fav-btn {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    color: var(--text-dim);
+  }
+  .fav-btn:active { transform: scale(1.3); }
+  .fav-btn.starred { color: var(--star); }
+  .play-icon { color: var(--text-dim); font-size: 18px; flex-shrink: 0; }
+
+  .empty-msg {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 2;
+    white-space: pre-line;
+  }
+
+  .loading-init {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── FULLSCREEN PLAYER OVERLAY ── */
+  #playerOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 999;
+    flex-direction: column;
+  }
+  #playerOverlay.open { display: flex; }
+
+  .player-top {
+    display: flex;
+    align-items: center;
+    padding: max(env(safe-area-inset-top), 14px) 16px 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    gap: 12px;
+    transition: opacity 0.3s;
+  }
+  .player-top.hidden { opacity: 0; pointer-events: none; }
+
+  .back-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .player-ch-name {
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .player-fav-btn {
+    font-size: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 4px;
+  }
+
+  #video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+
+  .player-loading {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+    z-index: 5;
+  }
+  .player-loading.show { display: flex; }
+
+  .player-spinner {
+    width: 52px; height: 52px;
+    border: 4px solid rgba(255,255,255,0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .player-error {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,61,113,0.2);
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    padding: 10px 22px;
+    font-size: 13px;
+    border-radius: 8px;
+    white-space: nowrap;
+    display: none;
+    z-index: 10;
+  }
+  .player-error.show { display: block; }
+
+  #playerOverlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<!-- LIST VIEW -->
+<div id="appView">
+  <header>
+    <div class="logo">ChRiZ IPTV</div>
+    <div class="live-dot"></div>
+    <div class="ch-count" id="chCount">로딩 중…</div>
+  </header>
+  <div class="group-tabs" id="groupTabs"></div>
+  <div class="channel-list" id="channelList">
+    <div class="loading-init">
+      <div class="spinner"></div>
+      <div>채널 목록 불러오는 중…</div>
+    </div>
+  </div>
+</div>
+
+<!-- FULLSCREEN PLAYER -->
+<div id="playerOverlay">
+  <div class="player-top" id="playerTop">
+    <div class="back-btn" id="backBtn">←</div>
+    <div class="player-ch-name" id="playerChName"></div>
+    <div class="player-fav-btn" id="playerFavBtn">☆</div>
+  </div>
+  <video id="video" controls playsinline webkit-playsinline x-webkit-airplay="allow"></video>
+  <div class="player-loading" id="playerLoading"><div class="player-spinner"></div></div>
+  <div class="player-error" id="playerError"></div>
+</div>
+
+<script>
+const M3U_URL = 'https://iptv-org.github.io/iptv/languages/kor.m3u';
+let allChannels      = [];
+let filteredChannels = [];
+let activeGroup      = '즐겨찾기';
+let favorites        = JSON.parse(localStorage.getItem('iptv_favs') || '[]');
+let currentIdx       = -1;
+let currentHls       = null;
+let uiHideTimer      = null;
+
+/* ── LOAD ── */
+async function loadM3U() {
+  try {
+    const res  = await fetch(M3U_URL);
+    const text = await res.text();
+    allChannels = parseM3U(text);
+    document.getElementById('chCount').textContent = allChannels.length + '개';
+    buildGroupTabs();
+    applyFilter();
+  } catch(e) {
+    document.getElementById('channelList').innerHTML =
+      '<div class="empty-msg">❌ 채널 목록을 불러오지 못했습니다.\n네트워크를 확인해주세요.</div>';
+    document.getElementById('chCount').textContent = '오류';
+  }
+}
+
+function parseM3U(text) {
+  const lines = text.split('\n').map(l => l.trim());
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].startsWith('#EXTINF')) continue;
+    const url = lines[i + 1];
+    if (!url || url.startsWith('#')) continue;
+    const nameMatch  = lines[i].match(/,(.+)$/);
+    const logoMatch  = lines[i].match(/tvg-logo="([^"]*)"/);
+    const groupMatch = lines[i].match(/group-title="([^"]*)"/);
+    result.push({
+      name:  nameMatch  ? nameMatch[1].trim()            : '알 수 없음',
+      logo:  logoMatch  ? logoMatch[1]                   : '',
+      group: groupMatch ? (groupMatch[1].trim() || '기타') : '기타',
+      url:   url.trim()
+    });
+  }
+  return result;
+}
+
+/* ── GROUP TABS (이벤트 위임 방식) ── */
+function buildGroupTabs() {
+  const groups = [...new Set(allChannels.map(c => c.group).filter(Boolean).sort())];
+  const tabs   = document.getElementById('groupTabs');
+  tabs.innerHTML = '';
+
+  ['즐겨찾기', '전체', ...groups].forEach(g => {
+    const div = document.createElement('div');
+    div.className = 'group-tab' +
+      (g === '즐겨찾기' ? ' fav-tab' : '') +
+      (g === activeGroup ? ' active' : '');
+    div.textContent = g === '즐겨찾기'
+      ? '⭐ 즐겨찾기' + (favorites.length ? ' (' + favorites.length + ')' : '')
+      : g;
+    div.dataset.group = g;
+    tabs.appendChild(div);
+  });
+}
+
+document.getElementById('groupTabs').addEventListener('click', function(e) {
+  const tab = e.target.closest('.group-tab');
+  if (!tab) return;
+  activeGroup = tab.dataset.group;
+  document.querySelectorAll('.group-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('channelList').scrollTop = 0;
+  applyFilter();
+});
+
+/* ── FILTER & RENDER ── */
+function applyFilter() {
+  if (activeGroup === '즐겨찾기') {
+    filteredChannels = allChannels.filter(c => favorites.includes(c.url));
+  } else if (activeGroup === '전체') {
+    filteredChannels = [...allChannels];
+  } else {
+    filteredChannels = allChannels.filter(c => c.group === activeGroup);
+  }
+  renderChannels();
+}
+
+function renderChannels() {
+  const list = document.getElementById('channelList');
+  if (filteredChannels.length === 0) {
+    list.innerHTML = '<div class="empty-msg">' +
+      (activeGroup === '즐겨찾기'
+        ? '⭐ 즐겨찾기한 채널이 없습니다.\n채널 옆 별표를 눌러 추가하세요.'
+        : '채널이 없습니다.') +
+      '</div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  filteredChannels.forEach((c, i) => {
+    const item    = document.createElement('div');
+    item.className = 'channel-item';
+    item.dataset.idx = i;
+    const isFav   = favorites.includes(c.url);
+    const logoHtml = c.logo
+      ? `<img src="${c.logo}" onerror="this.parentElement.innerHTML='📺'" alt="">`
+      : '📺';
+    item.innerHTML =
+      `<div class="ch-logo-wrap">${logoHtml}</div>` +
+      `<div class="ch-info">` +
+        `<div class="ch-name">${esc(c.name)}</div>` +
+        `<div class="ch-group">${esc(c.group)}</div>` +
+      `</div>` +
+      `<div class="fav-btn${isFav?' starred':''}" data-fav="${i}">${isFav?'⭐':'☆'}</div>` +
+      `<div class="play-icon">›</div>`;
+    frag.appendChild(item);
+  });
+  list.innerHTML = '';
+  list.appendChild(frag);
+}
+
+// 채널 리스트 이벤트 위임
+document.getElementById('channelList').addEventListener('click', function(e) {
+  const favBtn = e.target.closest('[data-fav]');
+  if (favBtn) { toggleFav(parseInt(favBtn.dataset.fav)); return; }
+  const item = e.target.closest('.channel-item');
+  if (item) playChannel(parseInt(item.dataset.idx));
+});
+
+/* ── FAVORITES ── */
+function toggleFav(idx) {
+  const url = filteredChannels[idx] && filteredChannels[idx].url;
+  if (!url) return;
+  const pos = favorites.indexOf(url);
+  if (pos === -1) favorites.push(url);
+  else favorites.splice(pos, 1);
+  localStorage.setItem('iptv_favs', JSON.stringify(favorites));
+  buildGroupTabs();
+  applyFilter();
+}
+
+function toggleFavFromPlayer() {
+  const ch = filteredChannels[currentIdx];
+  if (!ch) return;
+  const pos = favorites.indexOf(ch.url);
+  if (pos === -1) favorites.push(ch.url);
+  else favorites.splice(pos, 1);
+  localStorage.setItem('iptv_favs', JSON.stringify(favorites));
+  document.getElementById('playerFavBtn').textContent = favorites.includes(ch.url) ? '⭐' : '☆';
+  buildGroupTabs();
+  applyFilter();
+}
+
+/* ── PLAYER ── */
+function playChannel(idx) {
+  currentIdx = idx;
+  const ch = filteredChannels[idx];
+  if (!ch) return;
+
+  document.getElementById('playerChName').textContent = ch.name;
+  document.getElementById('playerFavBtn').textContent = favorites.includes(ch.url) ? '⭐' : '☆';
+  document.getElementById('playerError').classList.remove('show');
+  document.getElementById('playerTop').classList.remove('hidden');
+  document.getElementById('playerOverlay').classList.add('open');
+
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(() => {});
+  }
+
+  loadStream(ch.url);
+  scheduleHideUI();
+}
+
+function loadStream(url) {
+  const video = document.getElementById('video');
+  showLoading();
+  if (currentHls) { currentHls.destroy(); currentHls = null; }
+
+  const isHls = /\.m3u8/i.test(url) || !/\.(mp4|ts|mkv|avi)$/i.test(url);
+
+  if (Hls.isSupported() && isHls) {
+    currentHls = new Hls({ lowLatencyMode: true });
+    currentHls.loadSource(url);
+    currentHls.attachMedia(video);
+    currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hideLoading();
+      video.play().catch(() => {});
+    });
+    currentHls.on(Hls.Events.ERROR, (e, d) => {
+      if (d.fatal) { hideLoading(); showError('스트림 오류 – 다른 채널을 선택해주세요'); }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.onloadedmetadata = () => { hideLoading(); video.play().catch(() => {}); };
+    video.onerror = () => { hideLoading(); showError('재생 불가'); };
+  } else {
+    video.src = url;
+    video.oncanplay = () => { hideLoading(); video.play().catch(() => {}); };
+    video.onerror = () => { hideLoading(); showError('재생 불가'); };
+  }
+}
+
+function closePlayer() {
+  document.getElementById('playerOverlay').classList.remove('open');
+  const video = document.getElementById('video');
+  video.pause();
+  if (currentHls) { currentHls.destroy(); currentHls = null; }
+  video.src = '';
+  clearTimeout(uiHideTimer);
+  if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+}
+
+function showLoading()  { document.getElementById('playerLoading').classList.add('show'); }
+function hideLoading()  { document.getElementById('playerLoading').classList.remove('show'); }
+function showError(msg) {
+  const el = document.getElementById('playerError');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+/* ── UI AUTO-HIDE ── */
+document.getElementById('video').addEventListener('click', toggleUI);
+
+function toggleUI() {
+  const top = document.getElementById('playerTop');
+  top.classList.toggle('hidden');
+  clearTimeout(uiHideTimer);
+  if (!top.classList.contains('hidden')) scheduleHideUI();
+}
+function scheduleHideUI() {
+  clearTimeout(uiHideTimer);
+  uiHideTimer = setTimeout(() => {
+    document.getElementById('playerTop').classList.add('hidden');
+  }, 4000);
+}
+
+/* ── 버튼 이벤트 ── */
+document.getElementById('backBtn').addEventListener('click', closePlayer);
+document.getElementById('playerFavBtn').addEventListener('click', toggleFavFromPlayer);
+
+/* ── Android 백버튼 ── */
+window.addEventListener('popstate', () => {
+  if (document.getElementById('playerOverlay').classList.contains('open')) closePlayer();
+});
+document.getElementById('playerOverlay').addEventListener('touchstart', () => {
+  history.pushState(null, '');
+}, { once: true });
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadM3U();
+</script>
+</body>
+</html>

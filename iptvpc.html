@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KOR IPTV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a25;
+    --border: #2a2a3a;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --text: #e8e8f0;
+    --text-dim: #6b6b85;
+    --live: #ff3d71;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .live-badge {
+    background: var(--live);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 2px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .channel-count {
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .search-wrap {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    outline: none;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .group-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+  }
+
+  .group-tabs::-webkit-scrollbar { display: none; }
+
+  .group-tab {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .group-tab:hover { color: var(--text); }
+  .group-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .channel-list {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .channel-list::-webkit-scrollbar { width: 4px; }
+  .channel-list::-webkit-scrollbar-track { background: transparent; }
+  .channel-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .channel-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(42,42,58,0.5);
+    transition: background 0.15s;
+    position: relative;
+  }
+
+  .channel-item:hover { background: var(--surface2); }
+  .channel-item.active {
+    background: rgba(0,229,255,0.06);
+    border-left: 2px solid var(--accent);
+  }
+
+  .ch-logo {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+
+  .ch-logo-placeholder {
+    width: 36px;
+    height: 36px;
+    background: var(--surface2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+  }
+
+  .ch-info { flex: 1; min-width: 0; }
+
+  .ch-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ch-group {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ch-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  /* PLAYER AREA */
+  .player-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .video-wrap {
+    position: relative;
+    background: #000;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .idle-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--bg);
+  }
+
+  .idle-icon {
+    font-size: 64px;
+    opacity: 0.15;
+  }
+
+  .idle-text {
+    color: var(--text-dim);
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  /* scanline effect */
+  .video-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+  }
+
+  .now-playing {
+    padding: 10px 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .np-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--live);
+    animation: pulse 1.5s infinite;
+    flex-shrink: 0;
+  }
+
+  .np-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .np-url {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 400px;
+  }
+
+  /* STATUS */
+  .status-bar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: var(--accent);
+    padding: 6px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .status-bar.show { opacity: 1; }
+
+  /* LOADING */
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    display: none;
+  }
+
+  .loading-overlay.show { display: flex; }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,61,113,0.15);
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    padding: 8px 20px;
+    font-size: 12px;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+
+  .error-msg.show { opacity: 1; }
+
+  .empty-msg {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">KOR IPTV</div>
+  <div class="live-badge">LIVE</div>
+  <div class="channel-count" id="channelCount">로딩 중...</div>
+</header>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="search-wrap">
+      <input class="search-input" id="searchInput" placeholder="🔍  채널 검색..." oninput="filterChannels()">
+    </div>
+    <div class="group-tabs" id="groupTabs"></div>
+    <div class="channel-list" id="channelList"></div>
+  </div>
+
+  <!-- PLAYER -->
+  <div class="player-area">
+    <div class="video-wrap" id="videoWrap">
+      <div class="idle-screen" id="idleScreen">
+        <div class="idle-icon">📺</div>
+        <div class="idle-text">채널을 선택하세요</div>
+      </div>
+      <video id="video" controls></video>
+      <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+      <div class="status-bar" id="statusBar"></div>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+    <div class="now-playing" id="nowPlaying" style="display:none">
+      <div class="np-dot"></div>
+      <div class="np-name" id="npName"></div>
+      <div class="np-url" id="npUrl"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const M3U_URL = 'https://iptv-org.github.io/iptv/languages/kor.m3u';
+let allChannels = [];
+let filteredChannels = [];
+let activeGroup = '전체';
+let currentHls = null;
+
+async function loadM3U() {
+  showStatus('채널 목록 불러오는 중...');
+  try {
+    const res = await fetch(M3U_URL);
+    const text = await res.text();
+    allChannels = parseM3U(text);
+    document.getElementById('channelCount').textContent = `${allChannels.length}개 채널`;
+    buildGroupTabs();
+    renderChannels(allChannels);
+    showStatus(`✓ ${allChannels.length}개 채널 로드 완료`);
+    setTimeout(() => hideStatus(), 2500);
+  } catch (e) {
+    showStatus('❌ 채널 목록 로드 실패');
+    document.getElementById('channelCount').textContent = '로드 실패';
+  }
+}
+
+function parseM3U(text) {
+  const lines = text.split('\n').map(l => l.trim());
+  const channels = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const info = lines[i];
+      const url = lines[i + 1];
+      if (!url || url.startsWith('#')) continue;
+
+      const nameMatch = info.match(/,(.+)$/);
+      const logoMatch = info.match(/tvg-logo="([^"]*)"/);
+      const groupMatch = info.match(/group-title="([^"]*)"/);
+      const idMatch = info.match(/tvg-id="([^"]*)"/);
+
+      channels.push({
+        name: nameMatch ? nameMatch[1].trim() : '알 수 없음',
+        logo: logoMatch ? logoMatch[1] : '',
+        group: groupMatch ? groupMatch[1].trim() || '기타' : '기타',
+        url: url.trim(),
+        id: idMatch ? idMatch[1] : ''
+      });
+    }
+  }
+  return channels;
+}
+
+function buildGroupTabs() {
+  const groups = ['전체', ...new Set(allChannels.map(c => c.group).filter(Boolean).sort())];
+  const container = document.getElementById('groupTabs');
+  container.innerHTML = groups.map(g =>
+    `<div class="group-tab ${g === '전체' ? 'active' : ''}" onclick="selectGroup('${g.replace(/'/g,"\\'")}')">
+      ${g}
+    </div>`
+  ).join('');
+}
+
+function selectGroup(group) {
+  activeGroup = group;
+  document.querySelectorAll('.group-tab').forEach(t => {
+    t.classList.toggle('active', t.textContent.trim() === group);
+  });
+  filterChannels();
+}
+
+function filterChannels() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  filteredChannels = allChannels.filter(c => {
+    const matchGroup = activeGroup === '전체' || c.group === activeGroup;
+    const matchSearch = !query || c.name.toLowerCase().includes(query);
+    return matchGroup && matchSearch;
+  });
+  renderChannels(filteredChannels);
+}
+
+function renderChannels(channels) {
+  const list = document.getElementById('channelList');
+  if (channels.length === 0) {
+    list.innerHTML = '<div class="empty-msg">채널이 없습니다</div>';
+    return;
+  }
+  list.innerHTML = channels.map((c, i) => `
+    <div class="channel-item" id="ch-${i}" onclick="playChannel(${i})">
+      ${c.logo
+        ? `<img class="ch-logo" src="${c.logo}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="">`
+        : ''}
+      <div class="ch-logo-placeholder" style="${c.logo ? 'display:none' : ''}">📺</div>
+      <div class="ch-info">
+        <div class="ch-name">${c.name}</div>
+        <div class="ch-group">${c.group}</div>
+      </div>
+      <div class="ch-num">#${i+1}</div>
+    </div>
+  `).join('');
+}
+
+function playChannel(idx) {
+  const ch = filteredChannels[idx];
+  if (!ch) return;
+
+  // Active 표시
+  document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`ch-${idx}`);
+  if (el) {
+    el.classList.add('active');
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  // UI 업데이트
+  document.getElementById('idleScreen').style.display = 'none';
+  document.getElementById('nowPlaying').style.display = 'flex';
+  document.getElementById('npName').textContent = ch.name;
+  document.getElementById('npUrl').textContent = ch.url;
+  hideError();
+  showLoading();
+
+  const video = document.getElementById('video');
+
+  // 기존 HLS 정리
+  if (currentHls) {
+    currentHls.destroy();
+    currentHls = null;
+  }
+
+  const url = ch.url;
+
+  if (Hls.isSupported() && (url.includes('.m3u8') || url.includes('m3u8'))) {
+    currentHls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+    });
+    currentHls.loadSource(url);
+    currentHls.attachMedia(video);
+    currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hideLoading();
+      video.play().catch(() => {});
+    });
+    currentHls.on(Hls.Events.ERROR, (e, data) => {
+      if (data.fatal) {
+        hideLoading();
+        showError(`재생 오류: ${data.type}`);
+      }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.addEventListener('loadedmetadata', () => { hideLoading(); video.play(); }, { once: true });
+    video.addEventListener('error', () => { hideLoading(); showError('재생 오류'); }, { once: true });
+  } else {
+    video.src = url;
+    video.addEventListener('canplay', () => { hideLoading(); }, { once: true });
+    video.addEventListener('error', () => { hideLoading(); showError('지원하지 않는 스트림 형식'); }, { once: true });
+    video.play().catch(() => {});
+  }
+
+  showStatus(`▶ ${ch.name}`);
+  setTimeout(() => hideStatus(), 2000);
+}
+
+function showLoading() { document.getElementById('loadingOverlay').classList.add('show'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+function showStatus(msg) {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideStatus() { document.getElementById('statusBar').classList.remove('show'); }
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => hideError(), 4000);
+}
+function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+
+loadM3U();
+</script>
+</body>
+</html>
