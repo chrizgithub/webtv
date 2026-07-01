@@ -503,11 +503,11 @@ function loadChannels() {
 
 function loadRadioChannels() {
   RADIO_CHANNELS = [];
-  var radioUrls = isMobile()
-    ? ['https://tistory1.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-2-1.js',
-       'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-2-2.js']
-    : ['https://tistory1.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-1-1.js',
-       'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-1-2.js'];
+  // TV와 동일하게 PC/모바일 모두 같은(동작이 확인된) 목록을 사용
+  var radioUrls = [
+    'https://tistory1.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-2-1.js',
+    'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-2-2.js'
+  ];
 
   var defaultRadio = [
     { name:'KBS 1라디오', cat:'KBS', fnStr:"popKBS('R03')" },
@@ -525,16 +525,19 @@ function loadRadioChannels() {
       renderGrid('radioGrid', RADIO_CHANNELS, 'all');
       return;
     }
+    var beforeCount = RADIO_CHANNELS.length;
     var restore = _hookWriteln(RADIO_CHANNELS);
     var s = document.createElement('script');
     s.src = radioUrls[i] + '?_=' + Date.now();
     s.onload = function() {
       restore();
+      console.log('[radio] loaded OK:', s.src, '→ +' + (RADIO_CHANNELS.length - beforeCount) + ' channels (running total ' + RADIO_CHANNELS.length + ')');
       document.head.removeChild(s);
       loadRadioNext(i + 1);
     };
     s.onerror = function() {
       restore();
+      console.error('[radio] FAILED to load (404 or network error):', s.src);
       document.head.removeChild(s);
       loadRadioNext(i + 1);
     };
