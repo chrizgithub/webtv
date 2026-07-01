@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>실시간 TV — LIVE</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%230c0a04'/%3E%3Ctext x='32' y='44' font-family='Arial Black, sans-serif' font-size='22' font-weight='900' text-anchor='middle' fill='%23f59e0b' letter-spacing='-1'%3ECHR%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <style>
+    :root {
+      --bg:         #0c0a04;
+      --surface:    #141108;
+      --surface2:   #1e1a0e;
+      --border:     rgba(255,220,80,0.08);
+      --accent:     #f59e0b;
+      --accent2:    #fcd34d;
+      --accent-glow:rgba(245,158,11,0.25);
+      --red:        #ef4444;
+      --text:       #fef3c7;
+      --muted:      #92816a;
+      --radius:     14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans KR', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 80% 10%, rgba(245,158,11,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 30% at 10% 80%, rgba(252,211,77,0.07) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    header {
+      position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(12,10,4,0.88);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 20px;
+      height: 64px;
+    }
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px; letter-spacing: 3px;
+      color: #fff;
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; flex-shrink: 0;
+    }
+    .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red), 0 0 20px rgba(239,68,68,0.5);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    nav { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .nav-btn {
+      padding: 7px 16px; border-radius: 8px;
+      border: 1px solid transparent; background: transparent;
+      color: var(--muted); font-family: 'Noto Sans KR', sans-serif;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all .2s; text-decoration: none;
+    }
+    .nav-btn:hover { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    .nav-btn.active { background: var(--surface2); border-color: rgba(245,158,11,0.4); color: var(--accent); }
+    .sync-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--muted); font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px; cursor: pointer; transition: all .2s; flex-shrink: 0;
+    }
+    .sync-btn:hover { color: var(--accent2); border-color: rgba(252,211,77,0.4); }
+    .sync-btn svg { transition: transform .4s; }
+    .sync-btn.loading svg { animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    main { position: relative; z-index: 1; padding: 20px 24px; }
+    .tabs {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 18px;
+    }
+    .tab {
+      padding: 5px 14px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px; cursor: pointer; transition: all .2s;
+    }
+    .tab:hover { background: var(--surface); color: var(--text); }
+    .tab.active {
+      background: var(--accent); border-color: var(--accent);
+      color: #000; font-weight: 700;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .channel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1);
+      text-decoration: none; color: inherit;
+      display: flex; flex-direction: row; align-items: center; gap: 10px;
+      position: relative; overflow: hidden;
+      animation: fadeUp .3s ease both;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .channel-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0; transition: opacity .25s;
+    }
+    .channel-card:hover {
+      background: var(--surface2);
+      border-color: rgba(245,158,11,0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(245,158,11,0.1);
+    }
+    .channel-card:hover::before { opacity: 1; }
+    .card-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; overflow: hidden;
+    }
+    .card-icon img {
+      width: 28px; height: 28px; object-fit: contain; border-radius: 4px;
+    }
+    .card-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .card-type { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; margin-top: 2px; }
+    .state-box {
+      grid-column: 1 / -1;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 12px;
+      padding: 60px 20px; color: var(--muted); text-align: center;
+    }
+    footer {
+      position: relative; z-index: 1;
+      margin: 30px 24px 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--muted);
+    }
+    @media (max-width: 600px) {
+      header { padding: 0 14px; gap: 10px; }
+      main { padding: 14px; }
+      .nav-btn span { display: none; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 8px; }
+    }
+  </style>
+  <style>
+    .loading-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; transition: opacity .4s;
+    }
+    .loading-overlay.hide { opacity: 0; pointer-events: none; }
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    .loading-text { color: var(--muted); font-size: 13px; }
+    .error-banner {
+      display: none;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #ef4444; font-size: 12px;
+      padding: 8px 14px; border-radius: 8px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">채널 정보 불러오는 중…</div>
+</div>
+
+<header>
+  <a class="logo" href="#">
+    <span class="logo-dot"></span>
+    LIVE TV
+  </a>
+  <nav>
+    <button class="nav-btn active" onclick="switchPage('tv',this)">📺 <span>실시간 TV</span></button>
+    <button class="nav-btn" onclick="switchPage('radio',this)">📻 <span>라디오</span></button>
+  </nav>
+  <button class="sync-btn" id="syncBtn">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+      <path d="M16 16h5v5"/>
+    </svg>
+    <span id="syncLabel">새로고침</span>
+  </button>
+</header>
+
+
+<div class="error-banner" id="errBanner"></div>
+<main>
+  <div id="page-tv">
+    <div class="tabs" id="tvTabs">
+      <button class="tab active" onclick="filterCat('all',this)">전체</button>
+      <button class="tab" onclick="filterCat('지상파/종편',this)">지상파/종편</button>
+      <button class="tab" onclick="filterCat('뉴스',this)">뉴스</button>
+      <button class="tab" onclick="filterCat('KBS 계열',this)">KBS 계열</button>
+      <button class="tab" onclick="filterCat('콘텐츠',this)">콘텐츠</button>
+      <button class="tab" onclick="filterCat('스포츠',this)">스포츠</button>
+      <button class="tab" onclick="filterCat('교육/어린이',this)">교육/어린이</button>
+      <button class="tab" onclick="filterCat('종교',this)">종교</button>
+      <button class="tab" onclick="filterCat('지역/케이블',this)">지역/케이블</button>
+      <button class="tab" onclick="filterCat('홈쇼핑',this)">홈쇼핑</button>
+      <button class="tab" onclick="filterCat('해외',this)">해외</button>
+    </div>
+    <div class="grid" id="tvGrid"></div>
+  </div>
+  <div id="page-radio" style="display:none">
+    <div class="grid" id="radioGrid"></div>
+  </div>
+</main>
+
+
+<footer>
+  <span id="lastUpdated"></span>
+</footer>
+
+<script>
+/* ═══════════════════════════════
+   동적 채널 로더 — 원본 사이트 연동
+   접속할 때마다 최신 채널 정보 자동 반영
+═══════════════════════════════ */
+
+// 모바일/PC 판별
+function isMobile() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+// 원본 사이트의 function.js (popKBS, popKBSOven 등 포함)
+var FUNCTION_JS_URL = 'https://tistory1.daumcdn.net/tistory/2120872/skin/images/function.js';
+
+// 모바일 채널 JS 파일 목록 (원본 사이트 index.php 기준)
+var MOBILE_JS_URLS = [
+  'https://tistory4.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-1.js',
+  'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-2.js',
+  'https://tistory4.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-3.js',
+  'https://tistory3.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-4.js',
+  'https://tistory4.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-5.js',
+  'https://tistory1.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-6.js',
+  'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-7.js',
+  'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_tv_1-2-8.js'
+];
+
+// PC도 모바일 JS 사용 (동일한 채널, 모바일 친화적 URL)
+var PC_JS_URLS = MOBILE_JS_URLS;
+
+// 카테고리 탭 정의 (이름 기반 자동 분류)
+var CAT_RULES = [
+  { keywords: ['KBS NEWS','KBS DRAMA','KBS JOY','KBS STORY','KBS LIFE','KBS KIDS','KBS WORLD','KBS LIVE','어린이 만화동산','역사저널'], cat: 'KBS 계열' },
+  { keywords: ['KBS뉴스','MBC뉴스','SBS뉴스','YTN','연합뉴스','글로벌 뉴스'], cat: '뉴스' },
+  { keywords: ['KBS1','KBS2','MBC','SBS','JIBS','CJB','OBS','서울경제','팍스경제','JTBC','채널A','TV조선','MBN','대구MBC','대전MBC','부산KBS','대전KBS','광주KBS','울산KBS','토마토TV','딜사이트'], cat: '지상파/종편' },
+  { keywords: ['SBS GOLF','SBS GOLF2','PGA','JTBC GOLF','JTBC 스포츠','피파플러스','Red Bull','도시어부','SBS Sports','야구장','스포츠','농구','배구','골프','야구','축구','강문해변','속초','광안대교','제주도','자연인','최강야구'], cat: '스포츠' },
+  { keywords: ['EBS','YTN 사이언스','KOCW','Math','짱구','포켓몬','요리왕','핑크퐁','베베핀','키즈','코난','영화 리뷰','미스터 빈','바오','뽀요','코코비','로보카폴리','어린이 만화'], cat: '교육/어린이' },
+  { keywords: ['CBS','CTS','CGN','C채널','GOODTV','가톨릭','BBS','BTN','원음','MGTV'], cat: '종교' },
+  { keywords: ['TBS','딜라이브','ABN','CCS','KCTV','Btv','서경방송','토마토리빙','머니투데이','국악','복지TV','한국경제','이데일리','매일경제','KTV','국회','KFN','Arirang','농업방송'], cat: '지역/케이블' },
+  { keywords: ['GS샵','GS마이샵','현대홈쇼핑','NS홈쇼핑','CJ온스타일','롯데홈쇼핑','롯데One','W쇼핑','신세계쇼핑','쇼핑엔티','공영쇼핑','SK스토아','KT알파','홈앤쇼핑'], cat: '홈쇼핑' },
+  { keywords: ['FRANCE','Bloomberg','CBSN','NTV','CGN Japan','HOME','ABC TV','NHK','ANN','NBN','KTS','Shop Channel','QVC','TBS NEWS','KBC','Shibuya','CCTV4','SET iNEWS','Sky News','BBC','Kronehit','Classic Arts','Vevo','K-Stories','웨이포인트','FailArmy','인패스트','Tv Groovy','Smurf','TG Juior','Camp Spoopy','ducktv','HappyKids','NBC News','We Bare','Tom','G.I. JOE','Sabrina','K-POP'], cat: '해외' },
+  { keywords: ['엠비씨','SBS Plus','SBS funE','THE K-POP','SBS Biz','SBS Life','TV 동물농장','런닝맨','올 더 케이팝','대탈출','멜로','호텔 델루나','벌거벗은','THE 트롯','토마토클래식','웬그막','이벤트','인기영화','푸른거탑','한강'], cat: '콘텐츠' }
+];
+
+function getCat(name) {
+  for (var i = 0; i < CAT_RULES.length; i++) {
+    var rule = CAT_RULES[i];
+    for (var j = 0; j < rule.keywords.length; j++) {
+      if (name.indexOf(rule.keywords[j]) !== -1) return rule.cat;
+    }
+  }
+  return '콘텐츠';
+}
+
+// JS 텍스트에서 채널 파싱
+function parseChannelJS(jsText) {
+  var channels = [];
+  // writeln 내용 이어붙이기
+  var lines = [];
+  var re = /document\.writeln\('((?:[^\'\\]|\\.)*)'\);/g;
+  var m;
+  while ((m = re.exec(jsText)) !== null) {
+    lines.push(m[1]);
+  }
+  var html = lines.join('').replace(/\\'/g, "'");
+
+  // onclick + 채널명 추출
+  var chRe = /onclick="([^"]+)">([^<]+)<\/a>/g;
+  while ((m = chRe.exec(html)) !== null) {
+    var onclick = m[1];
+    var name = m[2].trim();
+    var urlM = onclick.match(/window\.open\('([^']+)'/);
+    var fnM  = onclick.match(/^(pop\w+\([^)]*\));/);
+    var ch = { name: name, cat: getCat(name) };
+    if (urlM)  ch.url = urlM[1];
+    else if (fnM) ch.fnStr = fnM[1];
+    channels.push(ch);
+  }
+  return channels;
+}
+
+// 아이콘 매핑
+var ICONS = {
+  'KBS': '🟦', 'MBC': '🟪', 'SBS': '🟥', 'JTBC': '⬛',
+  '뉴스': '📰', '스포츠': '🏅', 'EBS': '🟩',
+  '쇼핑': '🛒', '홈쇼핑': '🛍️',
+  '골프': '⛳', '야구': '⚾', '축구': '⚽', '배구': '🏐', '농구': '🏀',
+  '라디오': '📻', '어린이': '👶', '종교': '✝️',
+  '클래식': '🎻', '음악': '🎵', '영화': '🎬'
+};
+
+function getIcon(name, cat) {
+  for (var k in ICONS) {
+    if (name.indexOf(k) !== -1 || cat.indexOf(k) !== -1) return ICONS[k];
+  }
+  return '📺';
+}
+
+// 로고 URL
+function getLogo(name) {
+  var domains = {
+    'KBS': 'kbs.co.kr', 'MBC': 'imbc.com', 'SBS': 'sbs.co.kr',
+    'JTBC': 'jtbc.co.kr', '채널A': 'ichannela.com', 'TV조선': 'tvchosun.com',
+    'MBN': 'mbn.co.kr', 'YTN': 'ytn.co.kr', '연합뉴스': 'yonhapnewstv.co.kr',
+    'EBS': 'ebs.co.kr'
+  };
+  for (var k in domains) {
+    if (name.indexOf(k) !== -1) return 'https://www.google.com/s2/favicons?domain=' + domains[k] + '&sz=64';
+  }
+  return null;
+}
+
+/* ─── 전역 채널 배열 ─── */
+var TV_CHANNELS = [];
+var RADIO_CHANNELS = [];
+var currentCat = 'all';
+
+/* ─── UI 함수 ─── */
+var currentRadioLoaded = false;
+
+function switchPage(page, btn) {
+  document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('page-tv').style.display    = page === 'tv'    ? '' : 'none';
+  document.getElementById('page-radio').style.display = page === 'radio' ? '' : 'none';
+  if (page === 'radio' && !currentRadioLoaded) {
+    loadRadioChannels();
+    currentRadioLoaded = true;
+  }
+}
+
+function filterCat(cat, btn) {
+  document.querySelectorAll('#tvTabs .tab').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  currentCat = cat;
+  renderGrid('tvGrid', TV_CHANNELS, cat);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderGrid(gridId, channels, filter) {
+  var grid = document.getElementById(gridId);
+  var list = filter === 'all' ? channels : channels.filter(function(c) { return c.cat === filter; });
+  if (!list.length) {
+    grid.innerHTML = '<div class="state-box"><p>채널이 없습니다.</p></div>';
+    return;
+  }
+  grid.innerHTML = '';
+  list.forEach(function(ch, i) {
+    var card = document.createElement('div');
+    card.className = 'channel-card';
+    card.style.animationDelay = (i * 15) + 'ms';
+    var logo = getLogo(ch.name);
+    var iconHtml = logo
+      ? '<img src="' + logo + '" alt="' + escHtml(ch.name) + '" onerror="this.style.display=\"none\"">'
+      : (getIcon(ch.name, ch.cat));
+    card.innerHTML =
+      '<div class="card-icon">' + iconHtml + '</div>' +
+      '<div><div class="card-name">' + escHtml(ch.name) + '</div>' +
+      '<div class="card-type">' + ch.cat + '</div></div>';
+    (function(c) {
+      card.addEventListener('click', function() {
+        if (c.fnStr) {
+          try { eval(c.fnStr); } catch(e) { console.warn(c.name, e); }
+          return;
+        }
+        if (c.url) {
+          var url = c.url;
+          // YouTube embed → watch URL (모바일 앱 연동)
+          if (isMobile() && url.indexOf('youtube.com/embed/') !== -1) {
+            var vid = url.match(/embed\/([^?]+)/);
+            window.open(vid ? 'https://www.youtube.com/watch?v=' + vid[1] : url, '_blank');
+          } else {
+            window.open(url, '_blank');
+          }
+        }
+      });
+    })(ch);
+    grid.appendChild(card);
+  });
+}
+
+/* ─── 채널 동적 로드 (script 태그 방식 - CORS 없음) ─── */
+var _chLoadCount = 0;
+var _chLoadTotal = 0;
+
+function _onChunkLoaded() {
+  _chLoadCount++;
+  if (_chLoadCount >= _chLoadTotal) {
+    _finishLoad();
+  }
+}
+
+function _finishLoad() {
+  // 로딩 오버레이 제거
+  var overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('hide');
+  setTimeout(function() { overlay.style.display = 'none'; }, 400);
+
+  if (TV_CHANNELS.length === 0) {
+    document.getElementById('errBanner').style.display = 'block';
+    document.getElementById('errBanner').textContent = '⚠️ 채널 정보를 불러오지 못했습니다. 새로고침 해주세요.';
+  }
+  renderGrid('tvGrid', TV_CHANNELS, 'all');
+  document.getElementById('lastUpdated').textContent = '마지막 갱신: ' + new Date().toLocaleTimeString('ko-KR');
+}
+
+// 원본 사이트의 document.writeln을 가로채서 채널 파싱
+function _hookWriteln(targetArr) {
+  targetArr = targetArr || TV_CHANNELS;
+  var _buf = [];
+  var _origWriteln = document.writeln;
+  document.writeln = function(html) {
+    _buf.push(html);
+  };
+  return function restore() {
+    document.writeln = _origWriteln;
+    var html = _buf.join('').replace(/\\'/g, "'");
+    var m, re = /onclick="([^"]+)">([^<]+)<\/a>/g;
+    while ((m = re.exec(html)) !== null) {
+      var onclick = m[1], name = m[2].trim();
+      var urlM = onclick.match(/window\.open\('([^']+)'/);
+      var fnM  = onclick.match(/^(pop\w+\([^)]*\));/);
+      var ch = { name: name, cat: getCat(name) };
+      if (urlM)  ch.url    = urlM[1];
+      else if (fnM) ch.fnStr = fnM[1];
+      targetArr.push(ch);
+    }
+  };
+}
+
+function loadChannels() {
+  TV_CHANNELS = [];
+  var urls = isMobile() ? MOBILE_JS_URLS : PC_JS_URLS;
+  // 순차 로드: document.writeln 훅 충돌 방지
+  function loadNext(i) {
+    if (i >= urls.length) {
+      _finishLoad();
+      return;
+    }
+    var restore = _hookWriteln();
+    var s = document.createElement('script');
+    s.src = urls[i] + '?_=' + Date.now();
+    s.onload = function() {
+      restore();
+      document.head.removeChild(s);
+      loadNext(i + 1);
+    };
+    s.onerror = function() {
+      restore();
+      document.head.removeChild(s);
+      loadNext(i + 1);
+    };
+    document.head.appendChild(s);
+  }
+  loadNext(0);
+}
+
+function loadRadioChannels() {
+  RADIO_CHANNELS = [];
+  var radioUrls = isMobile()
+    ? ['https://tistory1.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-2-1.js',
+       'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-2-2.js']
+    : ['https://tistory1.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-1-1.js',
+       'https://tistory2.daumcdn.net/tistory/2120872/skin/images/webtv_radio_1-1-2.js'];
+
+  var defaultRadio = [
+    { name:'KBS 1라디오', cat:'KBS', fnStr:"popKBS('R03')" },
+    { name:'KBS 2라디오', cat:'KBS', fnStr:"popKBS('R11')" },
+    { name:'KBS 3라디오', cat:'KBS', fnStr:"popKBS('R05')" },
+    { name:'MBC 표준FM',  cat:'MBC', url:'https://www.youtube.com/embed/jxRQ_zp3yHc?autoplay=1' },
+    { name:'MBC FM4U',   cat:'MBC', url:'https://www.youtube.com/embed/yh0MgHPaZA4?autoplay=1' },
+    { name:'SBS 파워FM',  cat:'SBS', url:'https://www.youtube.com/embed/dRTxrGEbPG8?autoplay=1' },
+    { name:'SBS 러브FM',  cat:'SBS', url:'https://www.youtube.com/embed/NhxMYKjWEPQ?autoplay=1' },
+    { name:'YTN 라디오',  cat:'뉴스', url:'https://www.youtube.com/embed/Kji20YSoMFo?autoplay=1' }
+  ];
+  function loadRadioNext(i) {
+    if (i >= radioUrls.length) {
+      if (RADIO_CHANNELS.length === 0) RADIO_CHANNELS = defaultRadio;
+      renderGrid('radioGrid', RADIO_CHANNELS, 'all');
+      return;
+    }
+    var restore = _hookWriteln(RADIO_CHANNELS);
+    var s = document.createElement('script');
+    s.src = radioUrls[i] + '?_=' + Date.now();
+    s.onload = function() {
+      restore();
+      document.head.removeChild(s);
+      loadRadioNext(i + 1);
+    };
+    s.onerror = function() {
+      restore();
+      document.head.removeChild(s);
+      loadRadioNext(i + 1);
+    };
+    document.head.appendChild(s);
+  }
+  loadRadioNext(0);
+}
+
+/* ─── 새로고침 버튼 ─── */
+document.getElementById('syncBtn').addEventListener('click', function() {
+  var btn = this;
+  btn.classList.add('loading');
+  document.getElementById('syncLabel').textContent = '로딩 중…';
+  TV_CHANNELS = [];
+  currentRadioLoaded = false;
+  loadChannels();
+  setTimeout(function() {
+    btn.classList.remove('loading');
+    document.getElementById('syncLabel').textContent = '새로고침';
+  }, 1000);
+});
+
+/* ─── function.js 동적 로드 후 채널 로드 ─── */
+(function() {
+  var script = document.createElement('script');
+  script.src = FUNCTION_JS_URL;
+  script.onload = function() { loadChannels(); };
+  script.onerror = function() {
+    // function.js 실패해도 채널은 로드
+    loadChannels();
+  };
+  document.head.appendChild(script);
+})();
+
+</script>
+</body>
+</html>
