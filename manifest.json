@@ -2,10 +2,23 @@
   "name": "실시간 TV",
   "short_name": "CHR TV",
   "icons": [
-    { "src": "https://chrizgithub.github.io/webtv/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "https://chrizgithub.github.io/webtv/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
   ],
-  "start_url": "https://chrizgithub.github.io/webtv/webtv-redesign.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0c0a04",
   "theme_color": "#f59e0b"
