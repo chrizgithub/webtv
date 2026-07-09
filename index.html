@@ -157,8 +157,13 @@
       header { padding: 0 14px; gap: 10px; }
       main { padding: 14px; }
       .nav-btn span { display: none; }
+      .sync-btn span { display: none; }
+      .sync-btn { padding: 7px 10px; }
       .grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 8px; }
     }
+    /* 안전장치: flex 자식이 내용물 너비 때문에 부모를 밀어내지 못하도록 */
+    header { min-width: 0; }
+    .logo, nav, .sync-btn { min-width: 0; }
   </style>
   <style>
     .loading-overlay {
